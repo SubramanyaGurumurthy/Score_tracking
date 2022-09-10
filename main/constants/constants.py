@@ -1,6 +1,8 @@
 CS_WINS = ["A", "B", "C", "D", "E"]
 CS_LOSSES = ["a", "b", "c", 'd', "e"]
 
+NULL = 0
+
 # events:
 BEGIN = 0
 CONSECUTIVE_WIN = 1

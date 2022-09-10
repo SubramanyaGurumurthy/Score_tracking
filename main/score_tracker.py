@@ -1,12 +1,10 @@
-from ast import While
-from asyncio import events
-from tabnanny import check
-import numpy as np
-from enum import Enum
-from zmq import NULL
-from constants import *
-from constants.constants import BEGIN, COMPLETE, CONSECUTIVE_LOSS, CONSECUTIVE_WIN, CS_LOSSES, CS_WINS, LOSS, NOT_COMPLETE, OPPONENT_SERVE, RESET_CSLOSS, RESET_CSWIN, RESET_STEPLOSS, RESET_STEPWIN, STEP_LOSS, STEP_WIN, USER_SERVE
 
+from constants.constants import *
+
+'''
+Author: Subramanya Nanjangud Gurumurthy
+email: subramanyagurumurthy96@gmail.com
+'''
 
 def user_input():
     """ Reads the user inputs and returns numpy array of size 2x2 or returns NULL if no inputs
@@ -54,9 +52,9 @@ def user_input():
 
 
 class Score_Tracker:
-    def __init__(self) -> None:
+    def __init__(self, first_service) -> None:
         # here 0 corresponds to user as first serve, 1 corresponds to opponenet serving first time 
-        self.first_serve = 0
+        self.first_serve = first_service
         self.prev_score = [0, 0]
         self.current_score = [0, 0]
 
@@ -67,14 +65,10 @@ class Score_Tracker:
 
 class Score_Encoder:
     
-    # consecutive_wins = ["A", "B", "C", "D", "E"]
-    # consecutive_losses = ["a", "b", "c", 'd', "e"]
-    
     def __init__(self, score) -> None:
         self.encode_list = []
         self.consq_wins = ""
         self.consq_loss = ""
-        
         self.step = 0           # 0 none, 1 step win, 2 step loss
         self.score = score
         self.update_first_serve()
@@ -83,8 +77,8 @@ class Score_Encoder:
         self.opp_score_id = 0
         # this variable helps to track what happened previously. 1 consq_win, 2 consq_loss, 3 step_evnt win 4 step event loss
         self.last_event = 0
-        self.current_service = 0        # 1 users serve, 2 opponent serve
-
+        self.current_service = self.score.first_serve       # 1 users serve, 2 opponent serve
+        print("in score encoder, current service: ", self.current_service)
         
 
     def update_step(self, value):
@@ -165,176 +159,181 @@ class Score_Encoder:
             self.current_service = USER_SERVE
 
     def check_set(self, score:list):
-        if score[0] or score [1] >= 6 and abs(score[0] - score[1]) >=2:
-            return COMPLETE
+        if score[0] >=6 or score [1] >= 6:
+            if abs(score[0] - score[1]) >=2:
+                return COMPLETE
         else:
             return NOT_COMPLETE
 
     def encode(self, score:list):
-        if self.event_count >= 6:
-            if self.check_set(score) == COMPLETE:
-                return COMPLETE
+        if abs((self.score.current_score[0] + self.score.current_score[1]) - abs(score[0] + score[1])) != 1:
+            print("entered score is not valid...!!!")
+            print("re-enter values")
+        
+        else:
 
-        else:   
-            diff1 = score[0] - self.score.current_score[0]
-            diff2 = score[1] - self.score.current_score[1]
-            # if the user is serving now 
-            if(self.current_service == USER_SERVE):
-                if diff1 > diff2:
-                    # user won the point, need to update encoder accordingly
-                    if self.last_event == BEGIN:
-                        self.encode_list.append(self.update_step(WIN))
-                        self.last_event = STEP_WIN
-                        self.reset(RESET_STEPWIN)
+            print("current event: ", self.event_count)
+            print("current serve: ", self.current_service)
 
-                    elif self.last_event == CONSECUTIVE_WIN:
-                        self.encode_list.append(self.update_cosecutive_wins())
-                        self.last_event = CONSECUTIVE_WIN
-                        self.reset(RESET_CSWIN)
-                    
-                    #win a game after loosing consecutively 
-                    elif self.last_event == CONSECUTIVE_LOSS:
-                        self.encode_list.append(self.update_step(WIN))
-                        self.last_event = STEP_WIN
-                        self.reset(RESET_STEPWIN)
+            if self.event_count >= 6:
+                if self.check_set(score) == COMPLETE:
+                    return COMPLETE
 
-                    elif self.last_event == STEP_WIN:
-                        self.encode_list.append(self.update_cosecutive_wins())
-                        self.reset(RESET_CSWIN)
-                        self.last_event = CONSECUTIVE_WIN
-                    
-                    elif self.last_event == STEP_LOSS:
-                        self.encode_list.append(self.update_step(WIN))
-                        self.last_event = STEP_WIN
-                        self.reset(RESET_STEPWIN)
+            else:   
+                diff1 = score[0] - self.score.current_score[0]
+                diff2 = score[1] - self.score.current_score[1]
+                # if the user is serving now 
+                if(self.current_service == USER_SERVE):
+                    if diff1 > diff2:
+                        # user won the point, need to update encoder accordingly
+                        if self.last_event == BEGIN:
+                            self.encode_list.append(self.update_step(WIN))
+                            self.last_event = STEP_WIN
+                            self.reset(RESET_STEPWIN)
 
-                # user lost the points, need to update encoder accordingly
-                elif diff1 < diff2:
+                        elif self.last_event == CONSECUTIVE_WIN:
+                            self.encode_list.append(self.update_cosecutive_wins())
+                            self.last_event = CONSECUTIVE_WIN
+                            self.reset(RESET_CSWIN)
+                        
+                        #win a game after loosing consecutively 
+                        elif self.last_event == CONSECUTIVE_LOSS:
+                            self.encode_list.append(self.update_step(WIN))
+                            self.last_event = STEP_WIN
+                            self.reset(RESET_STEPWIN)
 
-                    if self.last_event == BEGIN:
-                        self.encode_list.append(self.update_step(LOSS))
-                        self.last_event = STEP_LOSS
-                        self.reset(RESET_STEPLOSS)
+                        elif self.last_event == STEP_WIN:
+                            self.encode_list.append(self.update_cosecutive_wins())
+                            self.reset(RESET_CSWIN)
+                            self.last_event = CONSECUTIVE_WIN
+                        
+                        elif self.last_event == STEP_LOSS:
+                            self.encode_list.append(self.update_step(WIN))
+                            self.last_event = STEP_WIN
+                            self.reset(RESET_STEPWIN)
 
-                    elif self.last_event == CONSECUTIVE_WIN:
-                        self.encode_list.append(self.update_step(LOSS))
-                        self.last_event = STEP_LOSS
-                        self.reset(RESET_STEPLOSS)
-                    
-                    elif self.last_event == CONSECUTIVE_LOSS:
-                        self.encode_list.append(self.update_consecutive_loss())
-                        self.reset(RESET_CSLOSS)
+                    # user lost the points, need to update encoder accordingly
+                    elif diff1 < diff2:
 
-                    elif self.last_event == STEP_WIN:
-                        self.encode_list.append(self.update_step(LOSS))
-                        self.last_event = STEP_LOSS
-                        self.reset(RESET_STEPLOSS)
-                    
-                    elif self.last_event == STEP_LOSS:
-                        self.encode_list.append(self.update_consecutive_loss())
-                        self.last_event = CONSECUTIVE_LOSS
-                        self.reset(RESET_CSLOSS)
+                        if self.last_event == BEGIN:
+                            self.encode_list.append(self.update_step(LOSS))
+                            self.last_event = STEP_LOSS
+                            self.reset(RESET_STEPLOSS)
 
-                    
-            elif self.current_service == OPPONENT_SERVE:
-                if diff2 > diff1:
-                    # user won the point on opponent serve
-                    if self.last_event == BEGIN:
-                        self.encode_list.append(self.update_step(WIN))
-                        self.last_event = STEP_WIN
-                        self.reset(RESET_STEPWIN)
+                        elif self.last_event == CONSECUTIVE_WIN:
+                            self.encode_list.append(self.update_step(LOSS))
+                            self.last_event = STEP_LOSS
+                            self.reset(RESET_STEPLOSS)
+                        
+                        elif self.last_event == CONSECUTIVE_LOSS:
+                            self.encode_list.append(self.update_consecutive_loss())
+                            self.reset(RESET_CSLOSS)
 
-                    elif self.last_event == CONSECUTIVE_WIN:
-                        self.encode_list.append(self.update_cosecutive_wins())
-                        self.last_event = CONSECUTIVE_WIN
-                        self.reset(RESET_CSWIN)
-                    
-                    #win a game after loosing consecutively 
-                    elif self.last_event == CONSECUTIVE_LOSS:
-                        self.encode_list.append(self.update_step(WIN))
-                        self.last_event = STEP_WIN
-                        self.reset(RESET_STEPWIN)
+                        elif self.last_event == STEP_WIN:
+                            self.encode_list.append(self.update_step(LOSS))
+                            self.last_event = STEP_LOSS
+                            self.reset(RESET_STEPLOSS)
+                        
+                        elif self.last_event == STEP_LOSS:
+                            self.encode_list.append(self.update_consecutive_loss())
+                            self.last_event = CONSECUTIVE_LOSS
+                            self.reset(RESET_CSLOSS)
 
-                    elif self.last_event == STEP_WIN:
-                        self.encode_list.append(self.update_cosecutive_wins())
-                        self.reset(RESET_CSWIN)
-                        self.last_event = CONSECUTIVE_WIN
-                    
-                    elif self.last_event == STEP_LOSS:
-                        self.encode_list.append(self.update_step(WIN))
-                        self.last_event = STEP_WIN
-                        self.reset(RESET_STEPWIN)        
+                        
+                elif self.current_service == OPPONENT_SERVE:
+                    if diff2 > diff1:
+                        # user won the point on opponent serve
+                        if self.last_event == BEGIN:
+                            self.encode_list.append(self.update_step(WIN))
+                            self.last_event = STEP_WIN
+                            self.reset(RESET_STEPWIN)
 
-                # user has lost a point in opponent serve
-                elif diff2 < diff1:
-                    
-                    if self.last_event == BEGIN:
-                        self.encode_list.append(self.update_step(LOSS))
-                        self.last_event = STEP_LOSS
-                        self.reset(RESET_STEPLOSS)
+                        elif self.last_event == CONSECUTIVE_WIN:
+                            self.encode_list.append(self.update_cosecutive_wins())
+                            self.last_event = CONSECUTIVE_WIN
+                            self.reset(RESET_CSWIN)
+                        
+                        #win a game after loosing consecutively 
+                        elif self.last_event == CONSECUTIVE_LOSS:
+                            self.encode_list.append(self.update_step(WIN))
+                            self.last_event = STEP_WIN
+                            self.reset(RESET_STEPWIN)
 
-                    elif self.last_event == CONSECUTIVE_WIN:
-                        self.encode_list.append(self.update_step(LOSS))
-                        self.last_event = STEP_LOSS
-                        self.reset(RESET_STEPLOSS)
-                    
-                    elif self.last_event == CONSECUTIVE_LOSS:
-                        self.encode_list.append(self.update_consecutive_loss())
-                        self.reset(RESET_CSLOSS)
+                        elif self.last_event == STEP_WIN:
+                            self.encode_list.append(self.update_cosecutive_wins())
+                            self.reset(RESET_CSWIN)
+                            self.last_event = CONSECUTIVE_WIN
+                        
+                        elif self.last_event == STEP_LOSS:
+                            self.encode_list.append(self.update_step(WIN))
+                            self.last_event = STEP_WIN
+                            self.reset(RESET_STEPWIN)        
 
-                    elif self.last_event == STEP_WIN:
-                        self.encode_list.append(self.update_step(LOSS))
-                        self.last_event = STEP_LOSS
-                        self.reset(RESET_STEPLOSS)
-                    
-                    elif self.last_event == STEP_LOSS:
-                        self.encode_list.append(self.update_consecutive_loss())
-                        self.last_event = CONSECUTIVE_LOSS
-                        self.reset(RESET_CSLOSS)
-            
+                    # user has lost a point in opponent serve
+                    elif diff2 < diff1:
+                        
+                        if self.last_event == BEGIN:
+                            self.encode_list.append(self.update_step(LOSS))
+                            self.last_event = STEP_LOSS
+                            self.reset(RESET_STEPLOSS)
 
-            self.score.update_score(score)
-            self.update_serve()
-            self.event_count += self.event_count
-            return NOT_COMPLETE
+                        elif self.last_event == CONSECUTIVE_WIN:
+                            self.encode_list.append(self.update_step(LOSS))
+                            self.last_event = STEP_LOSS
+                            self.reset(RESET_STEPLOSS)
+                        
+                        elif self.last_event == CONSECUTIVE_LOSS:
+                            self.encode_list.append(self.update_consecutive_loss())
+                            self.reset(RESET_CSLOSS)
+
+                        elif self.last_event == STEP_WIN:
+                            self.encode_list.append(self.update_step(LOSS))
+                            self.last_event = STEP_LOSS
+                            self.reset(RESET_STEPLOSS)
+                        
+                        elif self.last_event == STEP_LOSS:
+                            self.encode_list.append(self.update_consecutive_loss())
+                            self.last_event = CONSECUTIVE_LOSS
+                            self.reset(RESET_CSLOSS)
+                
+
+                self.score.update_score(score)
+                self.update_serve()
+                self.event_count = self.event_count + 1
+                return NOT_COMPLETE
 
 def main():
-    score_ = Score_Tracker()
-
-    print("beginning of the set: \n")
-    print("Please enter the score of each game according the server's perspective, i.e., the first score should be entered which corresponds to the serving player at each game \n")
-    print("Let's begin.....!!!!")
-    print("Enter 0 for user's serve, 1 for opponent's serve")
+    # print("beginning of the set: \n")
+    # print("Please enter the score of each game according the server's perspective, i.e., the first score should be entered which corresponds to the serving player at each game \n")
+    # print("Let's begin.....!!!!")
+    # print("Enter 0 for user's serve, 1 for opponent's serve")
     print("Please enter who is serving:\n")
     serve_value = input()
-
     if serve_value == 0:
-        score_.first_serve = USER_SERVE
+        serve_value = USER_SERVE
     elif serve_value == 1:
-        score_.first_serve = OPPONENT_SERVE
-
+        serve_value = OPPONENT_SERVE
+   
+    score_ = Score_Tracker(serve_value)
     score_encode = Score_Encoder(score_)
+
+    print("current serve: ", score_encode.current_service)
+
     while(True):
         print("Enter score: \n")
         score = user_input()
 
-        if score_encode.encode(score) == COMPLETE:
+        if score_encode.encode(score) == NOT_COMPLETE:
+            print("updated current score: ", score_.current_score)
+            print("encoded list: ", score_encode.encode_list)
+         
+        elif score_encode.encode(score) == COMPLETE:
             print("Set completed...!!\n")
             print("Encoded values are: \n")
             print(score_encode.encode_list)
             break
 
-        elif score_encode.encode(score) == NOT_COMPLETE:
-            print("updated current score: \n")
-            print(score_.current_score)
-            
 
 # beginning of the program
 if __name__ == "__main__":
-    # score = Score_Tracker()
-    # score.update_score(user_input())
-    # print("current score:\n")
-    # print(score.current_score)
-    # print("prev score:\n")
-    # print(score.prev_score)
     main()
