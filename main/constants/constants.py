@@ -31,6 +31,7 @@ class service(Enum):
     USER_SERVE = 0
     OPPONENT_SERVE = 1
 
+
 # set complete
 COMPLETE = 1
 NOT_COMPLETE = 2

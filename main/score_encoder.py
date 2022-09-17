@@ -45,20 +45,6 @@ def user_input():
                 num.append(int(s))
         return num
     
-    # if user inputs 2 or 3 numbers
-    # elif numericals >= 2 and numericals <4:
-    #     if numericals == 2:
-    #         for s in usr_inp:
-    #             if s.isdigit():
-    #                 num.append(int(s))
-    #         return np.array([[num[0], 0], [num[1], 0]])
-
-    #     elif numericals == 3:
-    #         for s in usr_inp:
-    #             if s.isdigit():
-    #                 num.append(int(s))
-    #         return np.array([[num[0], num[1]], [num[2], 0]])
-    
     else:
         return NULL        
 
@@ -86,7 +72,7 @@ def update_cosecutive_wins(self):
         
     return consq_wins
 
-def update_consecutive_loss(self):
+def update_consecutive_loss():
     if len(consq_loss) == 0:
         consq_loss = CS_LOSSES[0]
     
@@ -98,7 +84,7 @@ def update_consecutive_loss(self):
     
     return consq_loss
 
-def reset(self, value):
+def reset(value):
     
     # step win and step loss
     if (value == reset_.RESET_STEPLOSS or reset_.STEP_WIN):
@@ -118,18 +104,6 @@ def reset(self, value):
 
 def update_first_serve(score_):
     encode_list.append(score_.first_serve)
-
-    # user serving first time
-    # if (score.first_serve == 0):
-    #     user_score_id = 0
-    #     opp_score_id = 1
-    #     current_service = 1
-
-    # # opponent serving for first time
-    # elif (score.first_serve == 1):
-    #     user_score_id = 1
-    #     opp_score_id = 0
-    #     current_service = 2
 
 
 def update_serve():
@@ -152,6 +126,7 @@ def check_set(score:list):
 def encode(score:list, score_):
     global current_service 
     global event_count
+    
     if current_service == service.NONE:
         update_first_serve(score_)
         current_service = score_.first_serve
